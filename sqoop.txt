@@ -1,0 +1,1439 @@
+Start MYSQL :
+mysql
+
+Change the database to test database :
+use test;
+
+Create tables dept and employee :
+If it already exists, drop it:
+show tables
+drop table dept;
+drop table employee;
+
+create table dept(deptno int(3) primary key, dname varchar(10));
+insert into dept values(10,'ACCOUNTS');
+insert into dept values(20,'SALES');
+insert into dept values(30,'HR');
+insert into dept values(40,'TESTING');
+insert into dept values(50,'IT');
+
+create table employee(empno int(6) primary key, ename varchar(20), salary decimal(6,2), deptno  int(3) references dept(deptno));
+
+insert into employee values(1,'PETER', 500.50, 10);
+insert into employee values(2,'ROBERT', 895.45, 20);
+insert into employee values(3,'HARY', 600.75, 30);
+insert into employee values(4,'RITA', 895.45, 20);
+insert into employee values(5,'JULY', 500.50, 10);
+insert into employee values(6,'LOUIS', 395.72, 10);
+insert into employee values(7,'RYAN', 300.05, 30);
+insert into employee values(8,'ANA', 195.45, 20);
+insert into employee values(9,'SMITH', 360.86, null);
+insert into employee values(10,'KEVIN', 635.78, null);
+
+select * from dept;
+select * from employee;
+
+select dname, ename from dept join employee on dept.deptno=employee.deptno;
+
+create table employeenopk(empno int(6), ename varchar(20), salary decimal(6,2), deptno int(3) references dept(deptno));
+
+insert into employeenopk values(1,'PETER', 500.50, 10);
+insert into employeenopk values(2,'ROBERT', 895.45, 20);
+insert into employeenopk values(3,'HARY', 600.75, 30);
+insert into employeenopk values(4,'RITA', 895.45, 20);
+insert into employeenopk values(5,'JULY', 500.50, 10);
+
+quit;
+
+-----------------
+To import all the tables from the given database :
+
+drop the folders dept and employee from the default hadoop folder(/user/root)
+hadoop fs -rm -R dept
+hadoop fs -rm -R employee
+hadoop fs -rm -R employeenopk
+
+Importing all the tables from a mysql database :
+sqoop import-all-tables --connect jdbc:mysql://localhost/test --username root
+
+Note: If you are using the import-all-tables, it is mandatory that every table in that database must have a primary key field. Tables without PK will not be imported by the above command.
+
+hadoop fs -ls dept
+4-files
+hadoop fs -cat dept/part-m-00000
+hadoop fs -cat dept/part-m-00001
+
+hadoop fs -ls employee
+4-files
+hadoop fs -cat employee/part-m-00000
+hadoop fs -cat employee/part-m-00001
+-------------------------
+To just list the table from the given database :
+
+sqoop list-tables --connect jdbc:mysql://localhost/mysql --username root
+sqoop list-tables --connect jdbc:mysql://localhost/test --username root
+
+-----------------------
+
+hadoop fs -rm -R employee
+
+sqoop import --connect jdbc:mysql://localhost/sai --username  munaresh --password munaresh --table employee --m 1 --driver com.mysql.jdbc.Driver
+
+hadoop fs -ls employee 
+1-file
+hadoop fs -cat employee/part-m-00000
+-----------------
+hadoop fs -rm -R employeenopk
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employeenopk --m 2
+
+Since no PK, hence will not be imported.
+
+But,
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employeenopk --m 1
+
+This will work.
+
+
+----------------------
+
+sqoop import --connect jdbc:mysql://localhost/sai --username  munaresh --password munaresh --table employee --m 1 --driver com.mysql.jdbc.Driver
+ --target-dir /user/munaresh/newemployee
+
+hadoop fs -ls employee/newemployee
+1-file
+hadoop fs -cat employee/newemployee/part-m-00000
+
+----------------------
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --table employee --m 2 --target-dir /user/root/employee/newemployeem2
+
+hadoop fs -ls employee/newemployeem2
+2-files
+hadoop fs -cat employee/newemployeem2/part-m-00000
+hadoop fs -cat employee/newemployeem2/part-m-00001
+--------------
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --table employee --m 3 --target-dir /user/root/employee/newemployeem3
+
+hadoop fs -ls employee/newemployeem3
+3-files
+hadoop fs -cat employee/newemployeem3/part-m-00000
+hadoop fs -cat employee/newemployeem3/part-m-00001
+hadoop fs -cat employee/newemployeem3/part-m-00002
+-----------------
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --table employee --target-dir /user/root/employee/newemployeemd
+
+hadoop fs -ls employee/newemployeemd
+4-files
+hadoop fs -cat employee/newemployeemd/part-m-00000
+hadoop fs -cat employee/newemployeemd/part-m-00001
+hadoop fs -cat employee/newemployeemd/part-m-00002
+hadoop fs -cat employee/newemployeemd/part-m-00003
+
+---------
+--where clause to do filtering with --table clause, but only 1 condition allowed:
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --password munaresh --table employee --m 1 --where deptno=10 --driver com.mysql.jdbc.Driver --target-dir /user/munaresh/newemployeefilter
+
+hadoop fs -ls employee/newemployeefilter
+1-file
+
+hadoop fs -cat employee/newemployeefilter/part-m-00000
+-----------------
+Instead of --table tablename, you can also give a query using --query 'query', but for the query given $CONDITIONS keyword is needed with the "where" clause even if you are not doing any filtering :
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeefilter1
+
+
+
+hadoop fs -ls employee/newemployeefilter1
+1-file
+
+hadoop fs -cat employee/newemployeefilter1/part-m-00000
+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee' --m 1 --target-dir /user/root/employee/newemployeefilter11
+This will give error
+
+
+--------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where $CONDITIONS and deptno=10' --m  1 --target-dir /user/root/employee/newemployeefilter2
+
+
+hadoop fs -ls employee/newemployeefilter2
+1-file
+
+hadoop fs -cat employee/newemployeefilter2/part-m-00000
+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where deptno=10' --m 1 --target-dir /user/root/employee/newemployeefilter22
+This will give error
+
+
+--------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where $CONDITIONS and deptno=10 and salary>=500' --m 1 --target-dir /user/root/employee/newemployeefilter3
+
+hadoop fs -ls employee/newemployeefilter3
+1-file
+
+hadoop fs -cat employee/newemployeefilter3/part-m-00000
+---------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where  $CONDITIONS and deptno=10 or salary>=500 ' --m 1 --target-dir /user/root/employee/newemployeefilter4
+
+hadoop fs -ls employee/newemployeefilter4
+1-file
+
+hadoop fs -cat employee/newemployeefilter4/part-m-00000
+-----------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept join  employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeefilter5
+
+hadoop fs -ls employee/newemployeefilter5
+1-file
+
+hadoop fs -cat employee/newemployeefilter5/part-m-00000
+-----------------
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept left join employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeeloj
+
+hadoop fs -ls employee/newemployeeloj
+1-file
+
+hadoop fs -cat employee/newemployeeloj/part-m-00000
+
+---------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept right outer join employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeeroj
+
+hadoop fs -ls employee/newemployeeroj
+1-file
+
+hadoop fs -cat employee/newemployeeroj/part-m-00000
+---------------------
+There is no Full Join in mysql, hence, use the union:
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept left outer join employee on dept.deptno=employee.deptno union select dname, ename from dept right outer join employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeefoj
+
+hadoop fs -ls employee/newemployeefoj
+1-file
+
+hadoop fs -cat employee/newemployeefoj/part-m-00000
+
+---------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select deptno, sum(salary) from  employee where $CONDITIONS group by deptno' --m 1 --target-dir /user/root/employee/newemployeeg
+
+hadoop fs -ls employee/newemployeeg
+1-file
+
+hadoop fs -cat employee/newemployeeg/part-m-00000
+------------------
+--split-by : It is used to specify the column of the table used to generate splits for imports. This means that it specifies which column will be used to create the split while importing the data into your cluster. It can be used to enhance the import performance by achieving greater parallelism. Sqoop creates splits based on values in a particular column of the table which is specified by --split-by by the user through the import command. If it is not available, the primary key of the input table is used to create the splits. The splits are created based upon the minimum and the maximum values of the column specified and then the rows are splitted based upon those values in the minimum and maximum range of values for that column 
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --m 3 --split-by deptno --target-dir /user/root/employee/newemployeems1
+
+hadoop fs -ls employee/newemployeems1
+3-files
+hadoop fs -cat employee/newemployeems1/part-m-00000
+hadoop fs -cat employee/newemployeems1/part-m-00001
+hadoop fs -cat employee/newemployeems1/part-m-00002
+ 
+Since, we are spliting by deptno, the rows with deptno having null are not considered
+
+--------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --m 5 --split-by salary --target-dir /user/root/employee/newemployees22
+
+hadoop fs -ls employee/newemployees22
+5-files
+hadoop fs -cat employee/newemployees22/part-m-00000
+hadoop fs -cat employee/newemployees22/part-m-00001
+hadoop fs -cat employee/newemployees22/part-m-00002
+hadoop fs -cat employee/newemployees22/part-m-00003
+hadoop fs -cat employee/newemployees22/part-m-00004
+ 
+--------------------------
+--boundary-query : By default sqoop will use query select min(), max() from to find out boundaries for creating splits. You can specify any arbitrary query returning two numeric columns using --boundary-query argument
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --m 5 --split-by salary --boundary-query 'select 350,700  from dual' --target-dir /user/root/employee/newemployees3
+
+hadoop fs -ls employee/newemployees3
+5-files
+hadoop fs -cat employee/newemployees3/part-m-00000
+hadoop fs -cat employee/newemployees3/part-m-00001
+hadoop fs -cat employee/newemployees3/part-m-00002
+hadoop fs -cat employee/newemployees3/part-m-00003
+hadoop fs -cat employee/newemployees3/part-m-00004
+
+Here, only rows whose salary between the given range of 350 and 700 are considered
+
+-----------------
+mysql
+use test
+Select * from employee;
+
+insert into employee values(11,'SHAM',130.75,30);
+insert into employee values(12,'RAM',730.57,20);
+
+update employee set salary=salary*1.1 where empno=1;
+update employee set salary=salary*1.1 where empno=2;
+
+Select * from employee;
+-------------------
+hadoop fs -ls /user/root/employee/newemployee
+1-file with all the records imported earlier
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column empno --incremental append --last-value 10 --m 1 --target-dir /user/root/employee/newemployee
+
+hadoop fs -ls employee/newemployee
+1 new file
+hadoop fs -cat employee/newemployee/part-m-00001
+All the records after the record with empno as 10 are added to the new file
+---------------------
+mysql
+use test
+
+insert into employee values(13,'TOM',830.45,10);
+insert into employee values(14,'TIM',560.78,20);
+
+select * from employee;
+----------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column empno --incremental append --last-value 7 --m 1 --target-dir /user/root/employee/newemployee
+
+hadoop fs -ls employee/newemployee
+1 new file
+hadoop fs -cat employee/newemployee/part-m-00002
+All the records after the record with empno as 7 are added to the new file
+------------------
+
+mysql
+use test;
+select * from employee;
++-------+--------+--------+--------+
+| empno | ename  | salary | deptno |
++-------+--------+--------+--------+
+|     1 | PETER  | 550.55 |     10 |
+|     2 | ROBERT | 985.00 |     20 |
+|     3 | HARY   | 600.75 |     30 |
+|     4 | RITA   | 895.45 |     20 |
+|     5 | JULY   | 500.50 |     10 |
+|     6 | LOUIS  | 395.72 |     10 |
+|     7 | RYAN   | 300.05 |     30 |
+|     8 | ANA    | 195.45 |     20 |
+|     9 | SMITH  | 360.86 |   NULL |
+|    10 | KEVIN  | 635.78 |   NULL |
+|    11 | SHAM   | 130.75 |     30 |
+|    12 | RAM    | 730.57 |     20 |
+|    13 | TOM    | 830.45 |     10 |
+|    14 | TIM    | 560.78 |     20 |
++-------+--------+--------+--------+
+
+alter table employee add column mdate timestamp;
+consider this mdate column as date of modification
+describe employee;
+select * from employee;
+
+update employee set mdate=CURRENT_TIMESTAMP;
+
+select * from employee;
++-------+--------+--------+--------+---------------------+
+| empno | ename  | salary | deptno | mdate               |
++-------+--------+--------+--------+---------------------+
+|     1 | PETER  | 650.55 |     10 | 2017-02-28 17:40:46 |
+|     2 | ROBERT | 985.00 |     20 | 2017-02-28 17:40:46 |
+|     3 | HARY   | 600.75 |     30 | 2017-02-28 17:40:46 |
+|     4 | RITA   | 895.45 |     20 | 2017-02-28 17:40:46 |
+|     5 | JULY   | 600.50 |     10 | 2017-02-28 17:40:46 |
+|     6 | LOUIS  | 450.00 |     10 | 2017-02-28 17:40:46 |
+|     7 | RYAN   | 300.05 |     30 | 2017-02-28 17:40:46 |
+|     8 | ANA    | 195.45 |     20 | 2017-02-28 17:40:46 |
+|     9 | SMITH  | 395.00 |   NULL | 2017-02-28 17:40:46 |
+|    10 | KEVIN  | 635.78 |   NULL | 2017-02-28 17:40:46 |
+|    11 | SHAM   | 260.00 |     30 | 2017-02-28 17:40:46 |
+|    12 | RAM    | 830.57 |     20 | 2017-02-28 17:40:46 |
+|    13 | TOM    | 830.45 |     10 | 2017-02-28 17:40:46 |
+|    14 | TIM    | 660.78 |     20 | 2017-02-28 17:40:46 |
++-------+--------+--------+--------+---------------------+
+
+update employee set salary=salary+100, mdate=CURRENT_TIMESTAMP where empno in (1,5,12,14);
+
+select * from employee;
++-------+--------+--------+--------+---------------------+
+| empno | ename  | salary | deptno | mdate               |
++-------+--------+--------+--------+---------------------+
+|     1 | PETER  | 750.55 |     10 | 2017-02-28 17:41:53 |
+|     2 | ROBERT | 985.00 |     20 | 2017-02-28 17:40:46 |
+|     3 | HARY   | 600.75 |     30 | 2017-02-28 17:40:46 |
+|     4 | RITA   | 895.45 |     20 | 2017-02-28 17:40:46 |
+|     5 | JULY   | 700.50 |     10 | 2017-02-28 17:41:53 |
+|     6 | LOUIS  | 450.00 |     10 | 2017-02-28 17:40:46 |
+|     7 | RYAN   | 300.05 |     30 | 2017-02-28 17:40:46 |
+|     8 | ANA    | 195.45 |     20 | 2017-02-28 17:40:46 |
+|     9 | SMITH  | 395.00 |   NULL | 2017-02-28 17:40:46 |
+|    10 | KEVIN  | 635.78 |   NULL | 2017-02-28 17:40:46 |
+|    11 | SHAM   | 260.00 |     30 | 2017-02-28 17:40:46 |
+|    12 | RAM    | 930.57 |     20 | 2017-02-28 17:41:53 |
+|    13 | TOM    | 830.45 |     10 | 2017-02-28 17:40:46 |
+|    14 | TIM    | 760.78 |     20 | 2017-02-28 17:41:53 |
++-------+--------+--------+--------+---------------------+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column mdate --incremental lastmodified --last-value '2017-11-24 20:45:30' --m 1 --target-dir /user/root/employee/newemployee/new2
+
+or
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column mdate --incremental lastmodified --last-value '2017-11-25 01:09:00' --m 1 --target-dir /user/root/employee/newemployee/new2
+
+In the above, please place the approprite value for --last-value '2017-03-10 22:36:26'. All the records updated on or after the given value of the mdate column are considered.
+
+A new folder 'new2' gets created with a file part-m-00000 
+
+hadoop fs -ls employee/newemployee/new2
+hadoop fs -cat employee/newemployee/new2/part-m-00000
+
+or
+
+hadoop fs -ls employee/newemployee/new2
+hadoop fs -cat employee/newemployee/new2/part-m-00000
+It will have records updated on or after(greater than) the given last-value
+-----------------------
+Importing into HIVE :
+hadoop fs -rm -R /user/root/employee
+hadoop fs -rm -R /apps/hive/warehouse/employee
+
+hive
+drop table employee;
+quit;
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --hive-import
+
+start hive :
+hive
+show tables;
+describe employee;
+select * from employee;
+The table has data when queried
+
+Also, a folder 'employee' gets created in the default folder hive-table folder /apps/hive/warehouse/ with 4 files :
+hadoop fs -ls /apps/hive/warehouse/employee
+
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00000
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00001
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00002
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00003
+
+hadoop fs -ls employee
+No folder is created in /user/root
+
+If you re-run the above sqoop command again, then the 14 rows gets re-added to the existing rows in that table and files named as part-m-00000_copy_1, part-m-00001_copy_1, .... get created in the /apps/hive/warehouse folder.
+--------------------------------------
+
+hadoop fs -ls employee
+no directory exists, if it exists, then remove it.
+
+To avoid appending the rows, and to get an error(exception) if the table already exists, use the option --create-hive-table
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --hive-import --create-hive-table
+
+But, the data gets imported and a folder employee gets created in the deafult /user/root/ folder
+hadoop fs -ls employee
+4-files are created
+
+hadoop fs -cat employee/part-m-00000
+hadoop fs -cat employee/part-m-00001
+hadoop fs -cat employee/part-m-00002
+hadoop fs -cat employee/part-m-00003
+----------------------
+Now,
+in hive :
+drop table employee;
+hadoop fs -rm -R /apps/hive/warehouse/employee
+hadoop fs -rm -R /user/root/employee
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --hive-import --create-hive-table --fields-terminated-by ','
+
+--To create the target files as comma-separated
+
+start hive :
+hive
+show tables;
+describe employee;
+select * from employee;
+
+Also, a folder 'employee' gets create in the default folder /hive-table folder /apps/hive/warehouse/ with 4 files, which have comma-separated data :
+hadoop fs -ls /apps/hive/warehouse/employee
+
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00000
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00001
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00002
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00003
+
+No folder is created in /user/root
+
+----------------------
+sqoop create-hive-table command :
+Now,
+in hive :
+drop table employee;
+hadoop fs -rm -R /apps/hive/warehouse/employee
+hadoop fs -rm -R /user/root/employee
+
+3 steps:
+1)
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --split-by empno -m 1;
+
+hadoop fs -ls employee
+1-file
+hadoop fs -cat employee/part-m-00000
+
+hadoop fs -ls /apps/hive/warehouse/employee
+no folder yet
+
+2)
+sqoop create-hive-table --connect jdbc:mysql://localhost/test --username root --table employee --fields-terminated-by ','
+
+hadoop fs -ls /apps/hive/warehouse/employee
+folder created with no files into it
+
+start hive :
+hive
+show tables;
+describe employee;
+select * from employee;
+The table has no data when queried
+
+3)
+in hive, give the following command :
+load data inpath 'employee' into table employee;
+
+select * from employee;
+data is now shown
+
+hadoop fs -ls /apps/hive/warehouse/employee
+1-file shown
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00000
+
+hadoop fs -ls employee
+No file shown
+
+Thus, file has been moved.
+------------------------------
+Importing into HBASE :
+
+HBase table and column family should exist prior using sqoop import commands
+
+su hbase --c "/usr/lib/hbase/bin/hbase-daemon.sh --config /etc/hbase/conf start master"
+
+su hbase --c "/usr/lib/hbase/bin/hbase-daemon.sh --config /etc/hbase/conf start regionserver"
+
+jps
+After seeing that the HMaster and HregionServer services are running, you may start hbase shell
+
+To enter into the hbase shell :
+hbase shell
+
+Drop table myemp, if it already exists, and create it again :
+disable 'myemp'
+drop 'myemp'
+
+create 'myemp','e_no','e_name','e_salary','e_deptno','e_mdate' 
+
+describe 'myemp'
+scan 'myemp'
+
+OR
+
+disable 'myemp1'
+drop 'myemp1'
+
+create 'myemp1','e_prof','e_pers'
+describe 'myemp1'
+scan 'myemp1'
+
+quit :
+ctrl+d or quit
+
+at the unix prompt:
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename" --hbase-table myemp --column-family e_name --hbase-row-key empno -m 1
+
+or
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,salary,deptno" --hbase-table myemp1 --column-family e_prof --hbase-row-key empno -m 1
+
+both columns salaray , deptno are put into the column-family e_prof
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename,mdate" --hbase-table myemp1 --column-family e_pers --hbase-row-key empno -m 1
+
+both columns ename, mdate are put into the column-family e_pers
+
+You need to give the primary key source column as the rowid, and any other column alongwith it
+
+hbase shell
+scan 'myemp'
+scan 'myemp1'
+
+
+-----------------------
+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename,salary" --hbase-table myemp --column-family e_name --hbase-row-key empno -m 1
+
+--both columns ename and salaray are put into the column-family e_name. The earlier rows are lost and the new rows arew added.
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename,salary" --hbase-table myemp --column-family e_name,e_salary --hbase-row-key empno -m 1
+
+--This does not work. 
+
+
+hbase shell
+scan 'myemp'
+quit : ctrl+d
+-------------------
+at the unix prompt:
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,salary" --hbase-table myemp --column-family e_salary --hbase-row-key empno -m 1
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,deptno" --hbase-table myemp --column-family e_deptno --hbase-row-key empno -m 1
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,mdate" --hbase-table myemp --column-family e_mdate --hbase-row-key empno -m 1
+
+hbase shell
+scan 'myemp'
+get 'myemp', 9
+
+scan 'myemp', {LIMIT=>3}
+
+scan 'myemp', {STARTROW => '1', STOPROW =>'4'}
+
+scan 'myemp', { COLUMNS => ['e_deptno']}
+scan 'myemp', { COLUMNS => ['e_name','e_salary']}
+
+scan 'myemp', { COLUMNS => ['e_no']}
+
+Actually the column-family "e_no" is not required, as the empno from the employee table is going to become the rowid in the hbase table "myemp'
+----------------------
+
+To use ‘export‘ command, a table in database should already exist. then only export functionality in sqoop will works.
+
+export command will works in two ways
+1. insert
+2. update
+
+1) Insert :
+Drop and Re-Create a folder mydept in the /user/root/ folder of hdfs :
+hadoop fs -rm -R mydept
+hadoop fs -mkdir mydept
+
+Create a file mydept.txt in the local file system :
+vi mydept.txt
+
+10,IT,MUMBAI
+20,ACCOUNTS,DELHI
+30,SALES,BANGALORE
+40,TESTING,NOIDA
+50,MEDICAL,GURGAON
+
+Copy the file to the above created HDFS folder :
+hadoop fs -put mydept.txt mydept
+hadoop fs -ls mydept
+
+Start mysql:
+mysql
+use test
+
+
+Drop and Re-Create the following table :
+drop table mynewdept;
+create table mynewdept(deptno int(3) primary key, dname varchar(15), location varchar(25));
+
+describe mynewdept;
+
+select * from mynewdept;
+quit;
+
+sqoop export --connect jdbc:mysql://localhost/sai --table mynewdept --export-dir /user/munaresh/mydept/
+
+Start mysql:
+mysql
+use test
+
+select * from mynewdept;
+
+2) update :
+Let us change the file mydept.txt in the local file system :
+vi mydept.txt
+10,IT,MUMBAI
+20,ACCOUNTS,DELHI
+30,SALES,BANGALORE
+40,TESTING,NOIDA
+50,MEDICAL,GURGAON
+
+
+Make the following changes, so that the new data is as follows :
+10,IT,MUMBAI
+20,FINANCE,DELHI
+30,SALES,BANGALORE
+40,TESTING,PUNE
+50,MEDICAL,GURGAON
+60,ERP,JALGAON
+
+Delete the earlier file from hdfs and copy the new file as follows :
+hadoop fs -rm mydept/mydept.txt
+hadoop fs -put mydept.txt mydept
+
+verify the new contents :
+hadoop fs -cat mydept/mydept.txt
+
+sqoop export --connect jdbc:mysql://localhost/sai --table mynewdept --export-dir /user/munaresh/mydept/ --update-key deptno
+
+Start mysql:
+mysql
+use test
+
+select * from mynewdept;
+
+Though 6 rows are actually exported, but only 5 are shown. This is because update mode only update already existing records, it will not insert new records into the RDBMS.
+
+----------------------
+sqoop job :
+
+mysql
+use test
+delete from mynewdept;
+quit;
+
+
+If already exists, delete a sqoop job :
+sqoop job --delete myjob
+
+Create a job :
+sqoop job --create myjob -- export --connect jdbc:mysql://localhost/sai --table mynewdept --export-dir /user/munaresh/mydept/
+
+To see the list of sqoop jobs :
+sqoop job --list
+
+To see a job
+sqoop job --show myjob
+
+To execute a sqoop job 
+sqoop job --exec myjob
+
+mysql
+use test
+select * from mynewdept;
+quit;
+
+To delete a sqoop job :
+sqoop job --delete myjob
+
+--------------------Start MYSQL :
+mysql
+
+Change the database to test database :
+use test;
+
+Create tables dept and employee :
+If it already exists, drop it:
+show tables
+drop table dept;
+drop table employee;
+
+create table dept(deptno int(3) primary key, dname varchar(10));
+insert into dept values(10,'ACCOUNTS');
+insert into dept values(20,'SALES');
+insert into dept values(30,'HR');
+insert into dept values(40,'TESTING');
+insert into dept values(50,'IT');
+
+create table employee(empno int(6) primary key, ename varchar(20), salary decimal(6,2), deptno  int(3) references dept(deptno));
+
+insert into employee values(1,'PETER', 500.50, 10);
+insert into employee values(2,'ROBERT', 895.45, 20);
+insert into employee values(3,'HARY', 600.75, 30);
+insert into employee values(4,'RITA', 895.45, 20);
+insert into employee values(5,'JULY', 500.50, 10);
+insert into employee values(6,'LOUIS', 395.72, 10);
+insert into employee values(7,'RYAN', 300.05, 30);
+insert into employee values(8,'ANA', 195.45, 20);
+insert into employee values(9,'SMITH', 360.86, null);
+insert into employee values(10,'KEVIN', 635.78, null);
+
+select * from dept;
+select * from employee;
+
+select dname, ename from dept join employee on dept.deptno=employee.deptno;
+
+create table employeenopk(empno int(6), ename varchar(20), salary decimal(6,2), deptno int(3) references dept(deptno));
+
+insert into employeenopk values(1,'PETER', 500.50, 10);
+insert into employeenopk values(2,'ROBERT', 895.45, 20);
+insert into employeenopk values(3,'HARY', 600.75, 30);
+insert into employeenopk values(4,'RITA', 895.45, 20);
+insert into employeenopk values(5,'JULY', 500.50, 10);
+
+quit;
+
+-----------------
+To import all the tables from the given database :
+
+drop the folders dept and employee from the default hadoop folder(/user/root)
+hadoop fs -rm -R dept
+hadoop fs -rm -R employee
+hadoop fs -rm -R employeenopk
+
+Importing all the tables from a mysql database :
+sqoop import-all-tables --connect jdbc:mysql://localhost/test --username root
+
+Note: If you are using the import-all-tables, it is mandatory that every table in that database must have a primary key field. Tables without PK will not be imported by the above command.
+
+hadoop fs -ls dept
+4-files
+hadoop fs -cat dept/part-m-00000
+hadoop fs -cat dept/part-m-00001
+
+hadoop fs -ls employee
+4-files
+hadoop fs -cat employee/part-m-00000
+hadoop fs -cat employee/part-m-00001
+-------------------------
+To just list the table from the given database :
+
+sqoop list-tables --connect jdbc:mysql://localhost/mysql --username root
+sqoop list-tables --connect jdbc:mysql://localhost/test --username root
+
+-----------------------
+
+hadoop fs -rm -R employee
+
+sqoop import --connect jdbc:mysql://localhost/sai --username  munaresh --password munaresh --table employee --m 1 --driver com.mysql.jdbc.Driver
+
+hadoop fs -ls employee 
+1-file
+hadoop fs -cat employee/part-m-00000
+-----------------
+hadoop fs -rm -R employeenopk
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employeenopk --m 2
+
+Since no PK, hence will not be imported.
+
+But,
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employeenopk --m 1
+
+This will work.
+
+
+----------------------
+
+sqoop import --connect jdbc:mysql://localhost/sai --username  munaresh --password munaresh --table employee --m 1 --driver com.mysql.jdbc.Driver
+ --target-dir /user/munaresh/newemployee
+
+hadoop fs -ls employee/newemployee
+1-file
+hadoop fs -cat employee/newemployee/part-m-00000
+
+----------------------
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --table employee --m 2 --target-dir /user/root/employee/newemployeem2
+
+hadoop fs -ls employee/newemployeem2
+2-files
+hadoop fs -cat employee/newemployeem2/part-m-00000
+hadoop fs -cat employee/newemployeem2/part-m-00001
+--------------
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --table employee --m 3 --target-dir /user/root/employee/newemployeem3
+
+hadoop fs -ls employee/newemployeem3
+3-files
+hadoop fs -cat employee/newemployeem3/part-m-00000
+hadoop fs -cat employee/newemployeem3/part-m-00001
+hadoop fs -cat employee/newemployeem3/part-m-00002
+-----------------
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --table employee --target-dir /user/root/employee/newemployeemd
+
+hadoop fs -ls employee/newemployeemd
+4-files
+hadoop fs -cat employee/newemployeemd/part-m-00000
+hadoop fs -cat employee/newemployeemd/part-m-00001
+hadoop fs -cat employee/newemployeemd/part-m-00002
+hadoop fs -cat employee/newemployeemd/part-m-00003
+
+---------
+--where clause to do filtering with --table clause, but only 1 condition allowed:
+sqoop import --connect jdbc:mysql://localhost/test --username munaresh --password munaresh --table employee --m 1 --where deptno=10 --driver com.mysql.jdbc.Driver --target-dir /user/munaresh/newemployeefilter
+
+hadoop fs -ls employee/newemployeefilter
+1-file
+
+hadoop fs -cat employee/newemployeefilter/part-m-00000
+-----------------
+Instead of --table tablename, you can also give a query using --query 'query', but for the query given $CONDITIONS keyword is needed with the "where" clause even if you are not doing any filtering :
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeefilter1
+
+
+
+hadoop fs -ls employee/newemployeefilter1
+1-file
+
+hadoop fs -cat employee/newemployeefilter1/part-m-00000
+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee' --m 1 --target-dir /user/root/employee/newemployeefilter11
+This will give error
+
+
+--------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where $CONDITIONS and deptno=10' --m  1 --target-dir /user/root/employee/newemployeefilter2
+
+
+hadoop fs -ls employee/newemployeefilter2
+1-file
+
+hadoop fs -cat employee/newemployeefilter2/part-m-00000
+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where deptno=10' --m 1 --target-dir /user/root/employee/newemployeefilter22
+This will give error
+
+
+--------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where $CONDITIONS and deptno=10 and salary>=500' --m 1 --target-dir /user/root/employee/newemployeefilter3
+
+hadoop fs -ls employee/newemployeefilter3
+1-file
+
+hadoop fs -cat employee/newemployeefilter3/part-m-00000
+---------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select * from employee where  $CONDITIONS and deptno=10 or salary>=500 ' --m 1 --target-dir /user/root/employee/newemployeefilter4
+
+hadoop fs -ls employee/newemployeefilter4
+1-file
+
+hadoop fs -cat employee/newemployeefilter4/part-m-00000
+-----------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept join  employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeefilter5
+
+hadoop fs -ls employee/newemployeefilter5
+1-file
+
+hadoop fs -cat employee/newemployeefilter5/part-m-00000
+-----------------
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept left join employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeeloj
+
+hadoop fs -ls employee/newemployeeloj
+1-file
+
+hadoop fs -cat employee/newemployeeloj/part-m-00000
+
+---------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept right outer join employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeeroj
+
+hadoop fs -ls employee/newemployeeroj
+1-file
+
+hadoop fs -cat employee/newemployeeroj/part-m-00000
+---------------------
+There is no Full Join in mysql, hence, use the union:
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select dname, ename from dept left outer join employee on dept.deptno=employee.deptno union select dname, ename from dept right outer join employee on dept.deptno=employee.deptno where $CONDITIONS' --m 1 --target-dir /user/root/employee/newemployeefoj
+
+hadoop fs -ls employee/newemployeefoj
+1-file
+
+hadoop fs -cat employee/newemployeefoj/part-m-00000
+
+---------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --query 'select deptno, sum(salary) from  employee where $CONDITIONS group by deptno' --m 1 --target-dir /user/root/employee/newemployeeg
+
+hadoop fs -ls employee/newemployeeg
+1-file
+
+hadoop fs -cat employee/newemployeeg/part-m-00000
+------------------
+--split-by : It is used to specify the column of the table used to generate splits for imports. This means that it specifies which column will be used to create the split while importing the data into your cluster. It can be used to enhance the import performance by achieving greater parallelism. Sqoop creates splits based on values in a particular column of the table which is specified by --split-by by the user through the import command. If it is not available, the primary key of the input table is used to create the splits. The splits are created based upon the minimum and the maximum values of the column specified and then the rows are splitted based upon those values in the minimum and maximum range of values for that column 
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --m 3 --split-by deptno --target-dir /user/root/employee/newemployeems1
+
+hadoop fs -ls employee/newemployeems1
+3-files
+hadoop fs -cat employee/newemployeems1/part-m-00000
+hadoop fs -cat employee/newemployeems1/part-m-00001
+hadoop fs -cat employee/newemployeems1/part-m-00002
+ 
+Since, we are spliting by deptno, the rows with deptno having null are not considered
+
+--------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --m 5 --split-by salary --target-dir /user/root/employee/newemployees22
+
+hadoop fs -ls employee/newemployees22
+5-files
+hadoop fs -cat employee/newemployees22/part-m-00000
+hadoop fs -cat employee/newemployees22/part-m-00001
+hadoop fs -cat employee/newemployees22/part-m-00002
+hadoop fs -cat employee/newemployees22/part-m-00003
+hadoop fs -cat employee/newemployees22/part-m-00004
+ 
+--------------------------
+--boundary-query : By default sqoop will use query select min(), max() from to find out boundaries for creating splits. You can specify any arbitrary query returning two numeric columns using --boundary-query argument
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --m 5 --split-by salary --boundary-query 'select 350,700  from dual' --target-dir /user/root/employee/newemployees3
+
+hadoop fs -ls employee/newemployees3
+5-files
+hadoop fs -cat employee/newemployees3/part-m-00000
+hadoop fs -cat employee/newemployees3/part-m-00001
+hadoop fs -cat employee/newemployees3/part-m-00002
+hadoop fs -cat employee/newemployees3/part-m-00003
+hadoop fs -cat employee/newemployees3/part-m-00004
+
+Here, only rows whose salary between the given range of 350 and 700 are considered
+
+-----------------
+mysql
+use test
+Select * from employee;
+
+insert into employee values(11,'SHAM',130.75,30);
+insert into employee values(12,'RAM',730.57,20);
+
+update employee set salary=salary*1.1 where empno=1;
+update employee set salary=salary*1.1 where empno=2;
+
+Select * from employee;
+-------------------
+hadoop fs -ls /user/root/employee/newemployee
+1-file with all the records imported earlier
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column empno --incremental append --last-value 10 --m 1 --target-dir /user/root/employee/newemployee
+
+hadoop fs -ls employee/newemployee
+1 new file
+hadoop fs -cat employee/newemployee/part-m-00001
+All the records after the record with empno as 10 are added to the new file
+---------------------
+mysql
+use test
+
+insert into employee values(13,'TOM',830.45,10);
+insert into employee values(14,'TIM',560.78,20);
+
+select * from employee;
+----------------------
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column empno --incremental append --last-value 7 --m 1 --target-dir /user/root/employee/newemployee
+
+hadoop fs -ls employee/newemployee
+1 new file
+hadoop fs -cat employee/newemployee/part-m-00002
+All the records after the record with empno as 7 are added to the new file
+------------------
+
+mysql
+use test;
+select * from employee;
++-------+--------+--------+--------+
+| empno | ename  | salary | deptno |
++-------+--------+--------+--------+
+|     1 | PETER  | 550.55 |     10 |
+|     2 | ROBERT | 985.00 |     20 |
+|     3 | HARY   | 600.75 |     30 |
+|     4 | RITA   | 895.45 |     20 |
+|     5 | JULY   | 500.50 |     10 |
+|     6 | LOUIS  | 395.72 |     10 |
+|     7 | RYAN   | 300.05 |     30 |
+|     8 | ANA    | 195.45 |     20 |
+|     9 | SMITH  | 360.86 |   NULL |
+|    10 | KEVIN  | 635.78 |   NULL |
+|    11 | SHAM   | 130.75 |     30 |
+|    12 | RAM    | 730.57 |     20 |
+|    13 | TOM    | 830.45 |     10 |
+|    14 | TIM    | 560.78 |     20 |
++-------+--------+--------+--------+
+
+alter table employee add column mdate timestamp;
+consider this mdate column as date of modification
+describe employee;
+select * from employee;
+
+update employee set mdate=CURRENT_TIMESTAMP;
+
+select * from employee;
++-------+--------+--------+--------+---------------------+
+| empno | ename  | salary | deptno | mdate               |
++-------+--------+--------+--------+---------------------+
+|     1 | PETER  | 650.55 |     10 | 2017-02-28 17:40:46 |
+|     2 | ROBERT | 985.00 |     20 | 2017-02-28 17:40:46 |
+|     3 | HARY   | 600.75 |     30 | 2017-02-28 17:40:46 |
+|     4 | RITA   | 895.45 |     20 | 2017-02-28 17:40:46 |
+|     5 | JULY   | 600.50 |     10 | 2017-02-28 17:40:46 |
+|     6 | LOUIS  | 450.00 |     10 | 2017-02-28 17:40:46 |
+|     7 | RYAN   | 300.05 |     30 | 2017-02-28 17:40:46 |
+|     8 | ANA    | 195.45 |     20 | 2017-02-28 17:40:46 |
+|     9 | SMITH  | 395.00 |   NULL | 2017-02-28 17:40:46 |
+|    10 | KEVIN  | 635.78 |   NULL | 2017-02-28 17:40:46 |
+|    11 | SHAM   | 260.00 |     30 | 2017-02-28 17:40:46 |
+|    12 | RAM    | 830.57 |     20 | 2017-02-28 17:40:46 |
+|    13 | TOM    | 830.45 |     10 | 2017-02-28 17:40:46 |
+|    14 | TIM    | 660.78 |     20 | 2017-02-28 17:40:46 |
++-------+--------+--------+--------+---------------------+
+
+update employee set salary=salary+100, mdate=CURRENT_TIMESTAMP where empno in (1,5,12,14);
+
+select * from employee;
++-------+--------+--------+--------+---------------------+
+| empno | ename  | salary | deptno | mdate               |
++-------+--------+--------+--------+---------------------+
+|     1 | PETER  | 750.55 |     10 | 2017-02-28 17:41:53 |
+|     2 | ROBERT | 985.00 |     20 | 2017-02-28 17:40:46 |
+|     3 | HARY   | 600.75 |     30 | 2017-02-28 17:40:46 |
+|     4 | RITA   | 895.45 |     20 | 2017-02-28 17:40:46 |
+|     5 | JULY   | 700.50 |     10 | 2017-02-28 17:41:53 |
+|     6 | LOUIS  | 450.00 |     10 | 2017-02-28 17:40:46 |
+|     7 | RYAN   | 300.05 |     30 | 2017-02-28 17:40:46 |
+|     8 | ANA    | 195.45 |     20 | 2017-02-28 17:40:46 |
+|     9 | SMITH  | 395.00 |   NULL | 2017-02-28 17:40:46 |
+|    10 | KEVIN  | 635.78 |   NULL | 2017-02-28 17:40:46 |
+|    11 | SHAM   | 260.00 |     30 | 2017-02-28 17:40:46 |
+|    12 | RAM    | 930.57 |     20 | 2017-02-28 17:41:53 |
+|    13 | TOM    | 830.45 |     10 | 2017-02-28 17:40:46 |
+|    14 | TIM    | 760.78 |     20 | 2017-02-28 17:41:53 |
++-------+--------+--------+--------+---------------------+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column mdate --incremental lastmodified --last-value '2017-11-24 20:45:30' --m 1 --target-dir /user/root/employee/newemployee/new2
+
+or
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --check-column mdate --incremental lastmodified --last-value '2017-11-25 01:09:00' --m 1 --target-dir /user/root/employee/newemployee/new2
+
+In the above, please place the approprite value for --last-value '2017-03-10 22:36:26'. All the records updated on or after the given value of the mdate column are considered.
+
+A new folder 'new2' gets created with a file part-m-00000 
+
+hadoop fs -ls employee/newemployee/new2
+hadoop fs -cat employee/newemployee/new2/part-m-00000
+
+or
+
+hadoop fs -ls employee/newemployee/new2
+hadoop fs -cat employee/newemployee/new2/part-m-00000
+It will have records updated on or after(greater than) the given last-value
+-----------------------
+Importing into HIVE :
+hadoop fs -rm -R /user/root/employee
+hadoop fs -rm -R /apps/hive/warehouse/employee
+
+hive
+drop table employee;
+quit;
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --hive-import
+
+start hive :
+hive
+show tables;
+describe employee;
+select * from employee;
+The table has data when queried
+
+Also, a folder 'employee' gets created in the default folder hive-table folder /apps/hive/warehouse/ with 4 files :
+hadoop fs -ls /apps/hive/warehouse/employee
+
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00000
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00001
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00002
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00003
+
+hadoop fs -ls employee
+No folder is created in /user/root
+
+If you re-run the above sqoop command again, then the 14 rows gets re-added to the existing rows in that table and files named as part-m-00000_copy_1, part-m-00001_copy_1, .... get created in the /apps/hive/warehouse folder.
+--------------------------------------
+
+hadoop fs -ls employee
+no directory exists, if it exists, then remove it.
+
+To avoid appending the rows, and to get an error(exception) if the table already exists, use the option --create-hive-table
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --hive-import --create-hive-table
+
+But, the data gets imported and a folder employee gets created in the deafult /user/root/ folder
+hadoop fs -ls employee
+4-files are created
+
+hadoop fs -cat employee/part-m-00000
+hadoop fs -cat employee/part-m-00001
+hadoop fs -cat employee/part-m-00002
+hadoop fs -cat employee/part-m-00003
+----------------------
+Now,
+in hive :
+drop table employee;
+hadoop fs -rm -R /apps/hive/warehouse/employee
+hadoop fs -rm -R /user/root/employee
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --hive-import --create-hive-table --fields-terminated-by ','
+
+--To create the target files as comma-separated
+
+start hive :
+hive
+show tables;
+describe employee;
+select * from employee;
+
+Also, a folder 'employee' gets create in the default folder /hive-table folder /apps/hive/warehouse/ with 4 files, which have comma-separated data :
+hadoop fs -ls /apps/hive/warehouse/employee
+
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00000
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00001
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00002
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00003
+
+No folder is created in /user/root
+
+----------------------
+sqoop create-hive-table command :
+Now,
+in hive :
+drop table employee;
+hadoop fs -rm -R /apps/hive/warehouse/employee
+hadoop fs -rm -R /user/root/employee
+
+3 steps:
+1)
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --split-by empno -m 1;
+
+hadoop fs -ls employee
+1-file
+hadoop fs -cat employee/part-m-00000
+
+hadoop fs -ls /apps/hive/warehouse/employee
+no folder yet
+
+2)
+sqoop create-hive-table --connect jdbc:mysql://localhost/test --username root --table employee --fields-terminated-by ','
+
+hadoop fs -ls /apps/hive/warehouse/employee
+folder created with no files into it
+
+start hive :
+hive
+show tables;
+describe employee;
+select * from employee;
+The table has no data when queried
+
+3)
+in hive, give the following command :
+load data inpath 'employee' into table employee;
+
+select * from employee;
+data is now shown
+
+hadoop fs -ls /apps/hive/warehouse/employee
+1-file shown
+hadoop fs -cat /apps/hive/warehouse/employee/part-m-00000
+
+hadoop fs -ls employee
+No file shown
+
+Thus, file has been moved.
+------------------------------
+Importing into HBASE :
+
+HBase table and column family should exist prior using sqoop import commands
+
+su hbase --c "/usr/lib/hbase/bin/hbase-daemon.sh --config /etc/hbase/conf start master"
+
+su hbase --c "/usr/lib/hbase/bin/hbase-daemon.sh --config /etc/hbase/conf start regionserver"
+
+jps
+After seeing that the HMaster and HregionServer services are running, you may start hbase shell
+
+To enter into the hbase shell :
+hbase shell
+
+Drop table myemp, if it already exists, and create it again :
+disable 'myemp'
+drop 'myemp'
+
+create 'myemp','e_no','e_name','e_salary','e_deptno','e_mdate' 
+
+describe 'myemp'
+scan 'myemp'
+
+OR
+
+disable 'myemp1'
+drop 'myemp1'
+
+create 'myemp1','e_prof','e_pers'
+describe 'myemp1'
+scan 'myemp1'
+
+quit :
+ctrl+d or quit
+
+at the unix prompt:
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename" --hbase-table myemp --column-family e_name --hbase-row-key empno -m 1
+
+or
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,salary,deptno" --hbase-table myemp1 --column-family e_prof --hbase-row-key empno -m 1
+
+both columns salaray , deptno are put into the column-family e_prof
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename,mdate" --hbase-table myemp1 --column-family e_pers --hbase-row-key empno -m 1
+
+both columns ename, mdate are put into the column-family e_pers
+
+You need to give the primary key source column as the rowid, and any other column alongwith it
+
+hbase shell
+scan 'myemp'
+scan 'myemp1'
+
+
+-----------------------
+
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename,salary" --hbase-table myemp --column-family e_name --hbase-row-key empno -m 1
+
+--both columns ename and salaray are put into the column-family e_name. The earlier rows are lost and the new rows arew added.
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,ename,salary" --hbase-table myemp --column-family e_name,e_salary --hbase-row-key empno -m 1
+
+--This does not work. 
+
+
+hbase shell
+scan 'myemp'
+quit : ctrl+d
+-------------------
+at the unix prompt:
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,salary" --hbase-table myemp --column-family e_salary --hbase-row-key empno -m 1
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,deptno" --hbase-table myemp --column-family e_deptno --hbase-row-key empno -m 1
+
+sqoop import --connect jdbc:mysql://localhost/test --username root --table employee --columns "empno,mdate" --hbase-table myemp --column-family e_mdate --hbase-row-key empno -m 1
+
+hbase shell
+scan 'myemp'
+get 'myemp', 9
+
+scan 'myemp', {LIMIT=>3}
+
+scan 'myemp', {STARTROW => '1', STOPROW =>'4'}
+
+scan 'myemp', { COLUMNS => ['e_deptno']}
+scan 'myemp', { COLUMNS => ['e_name','e_salary']}
+
+scan 'myemp', { COLUMNS => ['e_no']}
+
+Actually the column-family "e_no" is not required, as the empno from the employee table is going to become the rowid in the hbase table "myemp'
+----------------------
+
+To use ‘export‘ command, a table in database should already exist. then only export functionality in sqoop will works.
+
+export command will works in two ways
+1. insert
+2. update
+
+1) Insert :
+Drop and Re-Create a folder mydept in the /user/root/ folder of hdfs :
+hadoop fs -rm -R mydept
+hadoop fs -mkdir mydept
+
+Create a file mydept.txt in the local file system :
+vi mydept.txt
+
+10,IT,MUMBAI
+20,ACCOUNTS,DELHI
+30,SALES,BANGALORE
+40,TESTING,NOIDA
+50,MEDICAL,GURGAON
+
+Copy the file to the above created HDFS folder :
+hadoop fs -put mydept.txt mydept
+hadoop fs -ls mydept
+
+Start mysql:
+mysql
+use test
+
+
+Drop and Re-Create the following table :
+drop table mynewdept;
+create table mynewdept(deptno int(3) primary key, dname varchar(15), location varchar(25));
+
+describe mynewdept;
+
+select * from mynewdept;
+quit;
+
+sqoop export --connect jdbc:mysql://localhost/sai --table mynewdept --export-dir /user/munaresh/mydept/
+
+Start mysql:
+mysql
+use test
+
+select * from mynewdept;
+
+2) update :
+Let us change the file mydept.txt in the local file system :
+vi mydept.txt
+10,IT,MUMBAI
+20,ACCOUNTS,DELHI
+30,SALES,BANGALORE
+40,TESTING,NOIDA
+50,MEDICAL,GURGAON
+
+
+Make the following changes, so that the new data is as follows :
+10,IT,MUMBAI
+20,FINANCE,DELHI
+30,SALES,BANGALORE
+40,TESTING,PUNE
+50,MEDICAL,GURGAON
+60,ERP,JALGAON
+
+Delete the earlier file from hdfs and copy the new file as follows :
+hadoop fs -rm mydept/mydept.txt
+hadoop fs -put mydept.txt mydept
+
+verify the new contents :
+hadoop fs -cat mydept/mydept.txt
+
+sqoop export --connect jdbc:mysql://localhost/sai --table mynewdept --export-dir /user/munaresh/mydept/ --update-key deptno
+
+Start mysql:
+mysql
+use test
+
+select * from mynewdept;
+
+Though 6 rows are actually exported, but only 5 are shown. This is because update mode only update already existing records, it will not insert new records into the RDBMS.
+
+----------------------
+sqoop job :
+
+mysql
+use test
+delete from mynewdept;
+quit;
+
+
+If already exists, delete a sqoop job :
+sqoop job --delete myjob
+
+Create a job :
+sqoop job --create myjob -- export --connect jdbc:mysql://localhost/sai --table mynewdept --export-dir /user/munaresh/mydept/
+
+To see the list of sqoop jobs :
+sqoop job --list
+
+To see a job
+sqoop job --show myjob
+
+To execute a sqoop job 
+sqoop job --exec myjob
+
+mysql
+use test
+select * from mynewdept;
+quit;
+
+To delete a sqoop job :
+sqoop job --delete myjob
+
+--------------------
